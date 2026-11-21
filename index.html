@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quiz 2 tracker — DL, CF, GT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF2F0; --sheet:#FFFFFF; --ink:#16233B; --muted:#5C6A7E; --rule:#D3DBD8; --grid:rgba(22,35,59,.045);
+  --dl:#0F7B6C; --dl-soft:#DDF1EC; --cf:#9A6400; --cf-soft:#F7EBD2; --gt:#5B3FA0; --gt-soft:#E9E3F6;
+  --done:#1D7A3A; --warn:#B3261E;
+  color-scheme:light;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1522; --sheet:#162033; --ink:#E6ECF5; --muted:#9AA8BC; --rule:#2A3850; --grid:rgba(230,236,245,.035);
+    --dl:#4CC9B4; --dl-soft:#163A37; --cf:#E3A93B; --cf-soft:#3A2E16; --gt:#AE95F0; --gt-soft:#2C2445;
+    --done:#5BCB7C; --warn:#FF8A80; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1522; --sheet:#162033; --ink:#E6ECF5; --muted:#9AA8BC; --rule:#2A3850; --grid:rgba(230,236,245,.035);
+  --dl:#4CC9B4; --dl-soft:#163A37; --cf:#E3A93B; --cf-soft:#3A2E16; --gt:#AE95F0; --gt-soft:#2C2445;
+  --done:#5BCB7C; --warn:#FF8A80; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:22px 22px;
+  font:16px/1.55 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+.wrap{max-width:980px;margin:0 auto;padding:28px 18px 64px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Atkinson Hyperlegible",system-ui,sans-serif;margin:0;line-height:1.15}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--dl);outline-offset:2px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:6px 28px;align-items:end;margin-bottom:22px}
+.days{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(84px,17vw,150px);line-height:.82;letter-spacing:-.04em}
+.hero h1{font-size:clamp(24px,4vw,34px);font-weight:700}
+.hero p{margin:6px 0 0;color:var(--muted);max-width:52ch}
+.sync{font-size:13px;color:var(--muted);margin-top:8px}
+
+/* overall bar */
+.bars{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 26px}
+.bar{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 14px}
+.bar b{font-family:"Bricolage Grotesque",sans-serif;font-size:15px}
+.bar .meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.bar .pct{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:22px}
+.track{height:8px;border-radius:4px;background:var(--rule);margin-top:8px;overflow:hidden}
+.fill{height:100%;border-radius:4px;transition:width .35s ease}
+.bar small{color:var(--muted);font-size:13px}
+
+/* sections */
+section{margin-top:34px}
+section > h2{font-size:24px;font-weight:700;margin-bottom:4px}
+section > .lede{color:var(--muted);margin:0 0 14px;max-width:70ch}
+
+/* plan strip */
+.plan{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px}
+.day{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 12px}
+.day.today{border:2px solid var(--ink)}
+.day.past:not(.complete){border-color:var(--warn)}
+.day.complete{opacity:.62}
+.day h3{font-size:15px;font-weight:700;display:flex;justify-content:space-between;gap:6px}
+.day h3 span{color:var(--muted);font-weight:500;font-size:13px}
+.task{display:flex;gap:8px;align-items:flex-start;margin-top:7px;font-size:14px;line-height:1.35;cursor:pointer}
+.task input{margin-top:2px;width:17px;height:17px;flex:none;accent-color:var(--done)}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:4px;vertical-align:1px}
+.chip.dl{background:var(--dl-soft);color:var(--dl)} .chip.cf{background:var(--cf-soft);color:var(--cf)} .chip.gt{background:var(--gt-soft);color:var(--gt)}
+.chip.all{background:var(--rule);color:var(--ink)}
+.exam-day{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.exam-day h3 span{color:var(--paper);opacity:.75}
+
+/* subject sheets */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tab{border:2px solid var(--rule);background:var(--sheet);border-radius:999px;padding:6px 14px;cursor:pointer;font-weight:700;font-size:14px}
+.tab[aria-selected="true"]{border-color:var(--c);background:var(--c);color:var(--sheet)}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--c);border-radius:10px;padding:16px 16px 18px}
+.sheet-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px}
+.sheet-head h3{font-size:22px}
+.sheet-head p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--rule);text-align:center;font-size:14px}
+th{font-weight:700;color:var(--muted);font-size:13px}
+th:first-child,td:first-child{text-align:left;width:46%}
+td .wk{font-weight:700;font-family:"Bricolage Grotesque",sans-serif;display:block}
+td input[type=text]{width:100%;border:0;border-bottom:1px dashed var(--rule);background:transparent;padding:2px 0;font-size:14px;color:var(--muted)}
+td input[type=text]:focus{outline:none;border-bottom-color:var(--c);color:var(--ink)}
+td input[type=checkbox]{width:20px;height:20px;accent-color:var(--c);cursor:pointer}
+tr.rowdone td:first-child .wk::after{content:" ✓";color:var(--done)}
+.notes{margin-top:14px}
+.notes label{font-weight:700;font-size:14px;display:block;margin-bottom:4px}
+.notes textarea{width:100%;min-height:76px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;background:transparent;resize:vertical;font-size:14px}
+
+/* calculator */
+.calc{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cbox{background:var(--sheet);border:1px solid var(--rule);border-top:5px solid var(--c);border-radius:10px;padding:12px 14px}
+.cbox h3{font-size:17px;margin-bottom:2px}
+.cbox .f{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.cbox label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;margin:6px 0}
+.cbox input[type=number]{width:72px;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:transparent;text-align:right}
+.cbox .t{font-family:"Bricolage Grotesque",sans-serif;font-size:30px;font-weight:800;margin-top:6px}
+.cbox .t small{font-size:14px;font-weight:500;color:var(--muted)}
+.need{font-size:13px;margin-top:6px;line-height:1.5}
+.need span{display:inline-block;margin-right:8px;white-space:nowrap}
+.need .no{color:var(--muted);text-decoration:line-through}
+/* mistake log */
+.logform{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px}
+.logform label{font-size:13px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.logform .wide{grid-column:1/-1}
+.logform select,.logform input,.logform textarea{border:1px solid var(--rule);border-radius:6px;padding:7px 9px;background:var(--sheet);font-size:14px;font-weight:400;color:var(--ink)}
+.logform textarea{min-height:60px;resize:vertical}
+.logform .actions{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{border:2px solid var(--ink);background:var(--ink);color:var(--sheet);border-radius:8px;padding:7px 16px;font-weight:700;cursor:pointer;font-size:14px}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn.sm{padding:4px 10px;font-size:13px;border-width:1px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 10px;align-items:center}
+.filters .tab{font-size:13px;padding:4px 12px}
+.filters .tab[aria-selected="true"]{border-color:var(--ink);background:var(--ink);color:var(--sheet)}
+.mlist{display:grid;gap:10px}
+.mcard{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--c);border-radius:10px;padding:12px 14px}
+.mcard.mastered{opacity:.6}
+.mtop{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.due{color:var(--warn);font-weight:700}
+.mq{margin:6px 0 4px;font-size:15px;white-space:pre-wrap}
+.mfix{font-size:14px;white-space:pre-wrap;border-top:1px dashed var(--rule);padding-top:6px;margin-top:6px}
+.mfix b{color:var(--done)}
+.mact{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.empty{background:var(--sheet);border:1px dashed var(--rule);border-radius:10px;padding:18px;color:var(--muted);text-align:center}
+@media (max-width:760px){.logform{grid-template-columns:1fr}}
+.foot{margin-top:40px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.foot button{background:none;border:1px solid var(--rule);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted)}
+
+@media (max-width:760px){
+  .bars,.calc{grid-template-columns:1fr}
+  .hero{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+(function(){
+const SUBJECTS = [
+  { id:"cf", name:"Corporate Finance", code:"MS3034", weeks:[5,6,7,8], qz1:24, w:{gaa:.1,qz1:.2,qz2:.3,f:.4},
+    formula:"T = 0.1 GAA + 0.2 Qz1 + 0.3 Qz2 + 0.4 F", why:"Start here: Quiz 2 carries 30% (the most of the three) and Quiz 1 was 24." },
+  { id:"dl", name:"Deep Learning", code:"CS3004", weeks:[5,6,7,8], qz1:24, w:{gaa:.05,qz1:.25,qz2:.25,f:.45},
+    formula:"T = 0.05 GAA + 0.25 Qz1 + 0.25 Qz2 + 0.45 F", why:"Second: Quiz 1 was 24, so Quiz 2 is your chance to pull this back up." },
+  { id:"gt", name:"Game Theory and Strategy", code:"MS4023", weeks:[1,2,3,4,5,6], qz1:60, w:{gaa:.1,qz1:.25,qz2:.25,f:.4},
+    formula:"T = 0.1 GAA + 0.25 Qz1 + 0.25 Qz2 + 0.4 F", why:"Third: you scored 60, so weeks 1–4 are revision. Focus new effort on weeks 5–6." }
+];
+const STEPS = [["lec","Lectures"],["notes","Notes"],["ga","Graded asgn"],["pyq","Practice / PYQ"],["rev","Revised"]];
+
+const PLAN = [
+  ["2026-11-21",[["cf","Week 5 lectures + notes"],["dl","Week 5 lectures + notes"]]],
+  ["2026-11-22",[["cf","Week 6 lectures + notes"],["dl","Week 6 lectures + notes"]]],
+  ["2026-11-23",[["cf","Week 7 lectures + notes"],["gt","Week 5 lectures + notes"]]],
+  ["2026-11-24",[["dl","Week 7 lectures + notes"],["gt","Week 5 graded assignment"]]],
+  ["2026-11-25",[["cf","Week 8 lectures + notes"],["dl","Week 8 lectures"]]],
+  ["2026-11-26",[["gt","Week 6 lectures + notes"],["dl","Week 8 notes + assignment"]]],
+  ["2026-11-27",[["cf","Redo graded assignments W5–8"],["cf","Numericals: practice set"]]],
+  ["2026-11-28",[["dl","Redo graded assignments W5–8"],["dl","Derivations + concept recap"]]],
+  ["2026-11-29",[["gt","Revise W1–4 (fix Quiz 1 mistakes)"],["gt","Practice W5–6 problems"]]],
+  ["2026-11-30",[["cf","Previous-year Quiz 2 paper (timed)"],["cf","Fix weak topics from paper"]]],
+  ["2026-12-01",[["dl","Previous-year Quiz 2 paper (timed)"],["dl","Fix weak topics from paper"]]],
+  ["2026-12-02",[["gt","Previous-year Quiz 2 paper (timed)"],["gt","Fix weak topics from paper"]]],
+  ["2026-12-03",[["cf","Formula sheet revision"],["dl","Concept sheet revision"]]],
+  ["2026-12-04",[["all","Light revision of all three"],["all","Pack hall ticket + ID, sleep early"]]]
+];
+const QUIZ = new Date(2026,11,5);
+const GRADES = [["S",90],["A",80],["B",70],["C",60],["D",50],["E",40]];
+const LS_KEY = "quiz2-tracker-v1";
+
+// ---------- state ----------
+function blank(){ return {v:1, updated:0, checks:{}, topics:{}, plan:{}, notes:{}, calc:{cf:{gaa:70,qz2:60,f:60},dl:{gaa:70,qz2:60,f:60},gt:{gaa:70,qz2:60,f:60}}, tab:"cf", mistakes:[], mfilter:"due", msubj:"all"}; }
+const MTYPES = [["concept","Concept gap"],["formula","Formula / method"],["calc","Calculation slip"],["read","Misread question"],["time","Ran out of time"],["doubt","Doubt to clear"]];
+const SNAME = {cf:"CF",dl:"DL",gt:"GT"};
+const GAPS = [1,3,7]; // days until next revisit, after 0, 1, 2+ revisits
+function isDue(m){
+  if(m.status==="mastered") return false;
+  const last = m.last || m.added;
+  const gap = GAPS[Math.min(m.count||0, GAPS.length-1)];
+  return (Date.now() - last) >= gap*86400000 - 3600000;
+}
+function nextIn(m){
+  const last = m.last || m.added; const gap = GAPS[Math.min(m.count||0, GAPS.length-1)];
+  const d = Math.ceil((last + gap*86400000 - Date.now())/86400000);
+  return d<=1 ? "tomorrow" : `in ${d} days`;
+}
+let draft = {subj:"cf", src:"", type:"concept", q:"", fix:""};
+let editingId = null;
+try{ const d = JSON.parse(sessionStorage.getItem("q2-draft")||"null"); if(d) draft = Object.assign(draft,d); }catch(e){}
+function keepDraft(){ try{ sessionStorage.setItem("q2-draft", JSON.stringify(draft)); }catch(e){} }
+let local = null;
+try{ local = JSON.parse(localStorage.getItem(LS_KEY) || "null"); }catch(e){}
+let state = Object.assign(blank(), local || {});
+
+const CFG_KEY = "q2-sheet-cfg";
+let cfg = {url:"", key:""};
+try{ cfg = Object.assign(cfg, JSON.parse(localStorage.getItem(CFG_KEY) || "{}")); }catch(e){}
+let dirty = false, timer = null, syncMsg = "", busy = false;
+const app = document.getElementById("app");
+
+function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+// data changed: bump the timestamp; publishSoon pushes to Google Sheets after a short pause
+function touch(publishSoon){
+  state.updated = Date.now();
+  saveLocal();
+  if(publishSoon){ dirty = true; clearTimeout(timer); timer = setTimeout(save, 2000); if(cfg.url) setSync("Saving…"); }
+}
+// view-only change (tab, filter): keep it locally without marking data as newer
+function uiTouch(){ saveLocal(); }
+function setSync(t){ syncMsg = t; const el = document.getElementById("sync"); if(el) el.textContent = t; }
+function timeStr(){ return new Date().toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"}); }
+
+async function api(method, body){
+  if(method==="GET"){
+    const r = await fetch(cfg.url + (cfg.url.includes("?")?"&":"?") + "key=" + encodeURIComponent(cfg.key), {redirect:"follow"});
+    return r.json();
+  }
+  const r = await fetch(cfg.url, {method:"POST", redirect:"follow", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(body)});
+  return r.json();
+}
+function adopt(remote){
+  state = Object.assign(blank(), remote, {tab:state.tab, mfilter:state.mfilter, msubj:state.msubj});
+  saveLocal(); rerender();
+}
+function typing(){ const a = document.activeElement; return a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type!=="checkbox"; }
+
+async function save(){
+  if(!dirty) return;
+  if(!cfg.url){ dirty=false; setSync("Saved on this device only. Connect Google Sheets at the bottom to sync."); return; }
+  if(busy){ clearTimeout(timer); timer = setTimeout(save, 1500); return; }
+  busy = true; dirty = false;
+  try{
+    const res = await api("POST", {key:cfg.key, state});
+    if(!res.ok){ setSync("Google Sheets refused the save: " + (res.error||"unknown error")); }
+    else if(res.stale && res.state){ adopt(res.state); setSync("Your other device had newer changes, loaded them " + timeStr()); }
+    else setSync("Synced to Google Sheets " + timeStr());
+  }catch(e){ dirty = true; setSync("Offline. Saved on this device, will sync when you’re back online."); }
+  busy = false;
+}
+async function pull(){
+  if(!cfg.url || busy) return;
+  if(dirty){ save(); return; }
+  busy = true;
+  try{
+    const res = await api("GET");
+    if(!res.ok){ setSync("Couldn’t read Google Sheets: " + (res.error||"unknown error")); }
+    else if(!res.state){ busy=false; dirty = true; await save(); return; }       // empty sheet: upload this device's data
+    else if((res.state.updated||0) > (state.updated||0)){
+      if(typing()) setSync("Newer data on Google Sheets; it’ll load when you finish typing");
+      else { adopt(res.state); setSync("Synced from Google Sheets " + timeStr()); }
+    }
+    else if((res.state.updated||0) < (state.updated||0)){ busy=false; dirty = true; await save(); return; }
+    else setSync("Synced " + timeStr());
+  }catch(e){ setSync("Offline. Saved on this device, will sync when you’re back online."); }
+  busy = false;
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") pull(); else if(dirty) save(); });
+window.addEventListener("online", ()=>pull());
+window.addEventListener("pagehide", ()=>{ if(dirty) save(); });
+
+// ---------- helpers ----------
+const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtDay = iso => { const [y,m,d] = iso.split("-").map(Number); return new Date(y,m-1,d); };
+function todayMid(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); }
+function subjPct(s){
+  let tot=0,done=0; s.weeks.forEach(w=>STEPS.forEach(([k])=>{ tot++; if(state.checks[`${s.id}-${w}-${k}`]) done++; }));
+  return {done,tot,pct: tot? Math.round(done*100/tot):0};
+}
+function score(s){
+  const c = state.calc[s.id]||{}; const w=s.w;
+  const rest = w.gaa*(+c.gaa||0) + w.qz1*s.qz1 + w.qz2*(+c.qz2||0);
+  return {T: rest + w.f*(+c.f||0), rest};
+}
+
+// ---------- render ----------
+function render(){
+  const daysLeft = Math.max(0, Math.round((QUIZ - todayMid())/86400000));
+  const today = todayMid().getTime();
+  const totals = SUBJECTS.map(subjPct);
+  const planDone = Object.values(state.plan).filter(Boolean).length;
+
+  let h = `
+  <header class="hero">
+    <div class="days" aria-label="${daysLeft} days left">${daysLeft}</div>
+    <div>
+      <h1>${daysLeft===1?"day":"days"} to Quiz 2, Saturday 5 December</h1>
+      <p>Weeks 5–8 for Deep Learning and Corporate Finance, weeks 1–6 for Game Theory. ${planDone} of ${PLAN.length*2} planned sessions done. ${(()=>{const n=state.mistakes.filter(isDue).length; return n? `<a href="#mistakes" style="color:var(--warn);font-weight:700">${n} mistake${n>1?"s":""} to revisit today.</a>` : "";})()}</p>
+      <div class="sync" id="sync" role="status">${esc(syncMsg)}</div>
+    </div>
+  </header>
+  <div class="bars">
+    ${SUBJECTS.map((s,i)=>`
+      <div class="bar" style="--c:var(--${s.id})">
+        <div class="meta"><b>${s.name}</b><span class="pct" style="color:var(--${s.id})">${totals[i].pct}%</span></div>
+        <div class="track"><div class="fill" style="width:${totals[i].pct}%;background:var(--${s.id})"></div></div>
+        <small>${totals[i].done} of ${totals[i].tot} steps · Quiz 1: ${s.qz1}</small>
+      </div>`).join("")}
+  </div>
+
+  <section>
+    <h2>Day-by-day plan</h2>
+    <p class="lede">Two focused sessions a day. Corporate Finance first, then Deep Learning, with Game Theory slotted in for weeks 5–6 and a revision pass. A red border means a past day still has unticked work.</p>
+    <div class="plan">
+      ${PLAN.map(([iso,tasks],di)=>{
+        const d = fmtDay(iso); const t=d.getTime();
+        const complete = tasks.every((_,ti)=>state.plan[`${di}-${ti}`]);
+        const cls = ["day", t===today?"today":"", t<today?"past":"", complete?"complete":""].join(" ");
+        return `<div class="${cls}">
+          <h3>${d.toLocaleDateString("en-IN",{weekday:"short"})} ${d.getDate()} ${d.toLocaleDateString("en-IN",{month:"short"})}<span>${t===today?"Today":`Day ${di+1}`}</span></h3>
+          ${tasks.map(([sid,txt],ti)=>`
+            <label class="task"><input type="checkbox" data-plan="${di}-${ti}" ${state.plan[`${di}-${ti}`]?"checked":""}>
+            <span><span class="chip ${sid}">${sid==="all"?"ALL":sid.toUpperCase()}</span>${esc(txt)}</span></label>`).join("")}
+        </div>`;
+      }).join("")}
+      <div class="day exam-day"><h3>Sat 5 Dec<span>Quiz 2</span></h3><div class="task" style="cursor:default">In person at your centre. Carry hall ticket and ID.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Syllabus checklist</h2>
+    <p class="lede">Tick each step per week. Type the week’s main topic in the blank line so your revision days have something concrete to look at.</p>
+    <div class="tabs" role="tablist">
+      ${SUBJECTS.map(s=>`<button class="tab" role="tab" style="--c:var(--${s.id})" data-tab="${s.id}" aria-selected="${state.tab===s.id}">${s.name}</button>`).join("")}
+    </div>
+    ${SUBJECTS.filter(s=>s.id===state.tab).map(s=>{
+      const p = subjPct(s);
+      return `<div class="sheet" style="--c:var(--${s.id})" role="tabpanel">
+        <div class="sheet-head">
+          <div><h3>${s.name} <span style="font-weight:500;color:var(--muted);font-size:15px">${s.code}</span></h3><p>${esc(s.why)}</p></div>
+          <strong style="color:var(--${s.id});font-family:'Bricolage Grotesque',sans-serif;font-size:20px">${p.done}/${p.tot}</strong>
+        </div>
+        <div class="scroll"><table>
+          <thead><tr><th>Week and topic</th>${STEPS.map(([,l])=>`<th>${l}</th>`).join("")}</tr></thead>
+          <tbody>
+          ${s.weeks.map(w=>{
+            const all = STEPS.every(([k])=>state.checks[`${s.id}-${w}-${k}`]);
+            return `<tr class="${all?"rowdone":""}">
+              <td><span class="wk">Week ${w}</span><input type="text" data-topic="${s.id}-${w}" value="${esc(state.topics[`${s.id}-${w}`])}" placeholder="Main topic (optional)" aria-label="Week ${w} topic"></td>
+              ${STEPS.map(([k,l])=>`<td><input type="checkbox" aria-label="Week ${w} ${l}" data-check="${s.id}-${w}-${k}" ${state.checks[`${s.id}-${w}-${k}`]?"checked":""}></td>`).join("")}
+            </tr>`;}).join("")}
+          </tbody>
+        </table></div>
+        <div class="notes"><label for="n-${s.id}">Doubts and weak spots</label>
+          <textarea id="n-${s.id}" data-note="${s.id}" placeholder="Write down anything to clear before the quiz">${esc(state.notes[s.id])}</textarea></div>
+      </div>`;}).join("")}
+  </section>
+
+  <section id="mistakes">
+    <h2>Mistake log</h2>
+    <p class="lede">Log every wrong answer or doubt from PYQs, assignments and lectures. Each one comes back for revisit after 1 day, then 3, then 7. Mark it “Got it” once you can solve it cold.</p>
+    <div class="logform">
+      <label>Subject
+        <select data-draft="subj">${SUBJECTS.map(s=>`<option value="${s.id}" ${draft.subj===s.id?"selected":""}>${s.name}</option>`).join("")}</select></label>
+      <label>Where from
+        <input type="text" data-draft="src" value="${esc(draft.src)}" placeholder="e.g. Sep 2026 Quiz 2, Q7"></label>
+      <label>What went wrong
+        <select data-draft="type">${MTYPES.map(([k,l])=>`<option value="${k}" ${draft.type===k?"selected":""}>${l}</option>`).join("")}</select></label>
+      <label class="wide">Question or doubt
+        <textarea data-draft="q" placeholder="Write the question, or what confused you">${esc(draft.q)}</textarea></label>
+      <label class="wide">Correct approach (fill now or later)
+        <textarea data-draft="fix" placeholder="The right method, formula or key idea">${esc(draft.fix)}</textarea></label>
+      <div class="actions">
+        <span style="font-size:13px;color:var(--muted)">${state.mistakes.length} logged · ${state.mistakes.filter(m=>m.status==="mastered").length} mastered</span>
+        <span style="display:flex;gap:8px">${editingId?`<button type="button" class="btn ghost" data-act="cancel">Cancel</button>`:""}
+        <button type="button" class="btn" data-act="add">${editingId?"Save changes":"Add to log"}</button></span>
+      </div>
+    </div>
+    <div class="filters" role="tablist" aria-label="Filter mistakes">
+      ${[["due","Due today"],["open","All open"],["mastered","Mastered"],["all","Everything"]].map(([k,l])=>{
+        const n = state.mistakes.filter(m=> k==="due"?isDue(m): k==="open"?m.status!=="mastered": k==="mastered"?m.status==="mastered":true).length;
+        return `<button class="tab" data-mfilter="${k}" aria-selected="${state.mfilter===k}">${l} (${n})</button>`;}).join("")}
+      <span style="width:8px"></span>
+      ${[["all","All subjects"],...SUBJECTS.map(s=>[s.id,SNAME[s.id]])].map(([k,l])=>`<button class="tab" data-msubj="${k}" aria-selected="${state.msubj===k}">${l}</button>`).join("")}
+      <button type="button" class="btn ghost sm" data-act="copy" style="margin-left:auto">Copy log as text</button>
+    </div>
+    <div class="mlist">${mistakeList()}</div>
+  </section>
+
+  <section>
+    <h2>What Quiz 2 does to your final score</h2>
+    <p class="lede">Your Quiz 1 marks are filled in. Enter an expected assignment average (GAA), a Quiz 2 target and an end-term guess to see your course total and the end-term marks you’d need for each grade. Deep Learning’s bonus marks (up to 5) aren’t included.</p>
+    <div class="calc">
+      ${SUBJECTS.map(s=>{
+        const c = state.calc[s.id]; const {T,rest} = score(s);
+        return `<div class="cbox" style="--c:var(--${s.id})">
+          <h3>${s.name}</h3><div class="f">${s.formula}</div>
+          <label>Quiz 1 <strong>${s.qz1}</strong></label>
+          <label for="g-${s.id}">GAA <input id="g-${s.id}" type="number" min="0" max="100" data-calc="${s.id}.gaa" value="${c.gaa}"></label>
+          <label for="q-${s.id}">Quiz 2 target <input id="q-${s.id}" type="number" min="0" max="100" data-calc="${s.id}.qz2" value="${c.qz2}"></label>
+          <label for="e-${s.id}">End term <input id="e-${s.id}" type="number" min="0" max="100" data-calc="${s.id}.f" value="${c.f}"></label>
+          <div class="t" data-out="${s.id}">${T.toFixed(1)} <small>/ 100</small></div>
+          <div class="need" data-need="${s.id}">${needHtml(s,rest)}</div>
+        </div>`;}).join("")}
+    </div>
+  </section>
+
+  <section id="sync-setup">
+    <h2>Sync with Google Sheets</h2>
+    <p class="lede">${cfg.url ? "Connected. Changes save to your sheet a couple of seconds after you make them, and load when you come back to this tab." : "Paste your Apps Script web app URL and secret key once on each device (phone and laptop) to share progress between them."}</p>
+    <div class="logform">
+      <label class="wide">Web app URL
+        <input type="url" id="cfg-url" value="${esc(cfg.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
+      <label class="wide">Secret key
+        <input type="password" id="cfg-key" value="${esc(cfg.key)}" placeholder="The SECRET you set in the script" autocomplete="off"></label>
+      <div class="actions">
+        <span style="font-size:13px;color:var(--muted)">The URL and key stay on this device. They’re never put in the page file.</span>
+        <span style="display:flex;gap:8px;flex-wrap:wrap">
+          ${cfg.url ? `<button type="button" class="btn ghost" data-act="disconnect">Disconnect</button><button type="button" class="btn ghost" data-act="syncnow">Sync now</button>` : ""}
+          <button type="button" class="btn" data-act="connect">${cfg.url ? "Update" : "Connect"}</button>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>${cfg.url ? "Syncing with Google Sheets." : "Saving on this device only."}</span>
+    <button type="button" id="reset">Clear all progress</button>
+  </div>`;
+  app.innerHTML = h;
+}
+function mistakeList(){
+  const f = state.mfilter, sj = state.msubj;
+  const list = state.mistakes.filter(m=>
+    (sj==="all"||m.subj===sj) &&
+    (f==="due"?isDue(m): f==="open"?m.status!=="mastered": f==="mastered"?m.status==="mastered":true)
+  ).sort((a,b)=> (isDue(b)-isDue(a)) || (b.added-a.added));
+  if(!list.length){
+    return `<div class="empty">${state.mistakes.length===0 ? "No mistakes logged yet. After your next practice set, add each wrong answer here."
+      : f==="due" ? "Nothing due right now. Logged mistakes come back here on their revisit day." : "Nothing matches this filter."}</div>`;
+  }
+  const tl = Object.fromEntries(MTYPES);
+  return list.map(m=>{
+    const due = isDue(m);
+    const d = new Date(m.added);
+    return `<div class="mcard ${m.status==="mastered"?"mastered":""}" style="--c:var(--${m.subj})">
+      <div class="mtop">
+        <span><span class="chip ${m.subj}">${SNAME[m.subj]}</span>${esc(tl[m.type]||"")}${m.src?` · ${esc(m.src)}`:""}</span>
+        <span>${m.status==="mastered" ? "Mastered" : due ? `<span class="due">Revisit today</span>` : `Next revisit ${nextIn(m)}`} · revisited ${m.count||0}× · added ${d.getDate()} ${d.toLocaleDateString("en-IN",{month:"short"})}</span>
+      </div>
+      <div class="mq">${esc(m.q)}</div>
+      ${m.fix ? `<div class="mfix"><b>Fix:</b> ${esc(m.fix)}</div>` : `<div class="mfix" style="color:var(--muted)">No fix written yet. Use Edit to add the correct approach.</div>`}
+      <div class="mact">
+        ${m.status==="mastered"
+          ? `<button class="btn ghost sm" data-act="reopen" data-id="${m.id}">Reopen</button>`
+          : `<button class="btn sm" data-act="revisit" data-id="${m.id}">Revisited, still shaky</button>
+             <button class="btn ghost sm" data-act="master" data-id="${m.id}">Got it</button>`}
+        <button class="btn ghost sm" data-act="edit" data-id="${m.id}">Edit</button>
+        <button class="btn ghost sm" data-act="del" data-id="${m.id}">Delete</button>
+      </div>
+    </div>`;}).join("");
+}
+function needHtml(s,rest){
+  return "End term needed: " + GRADES.map(([g,cut])=>{
+    const need = Math.ceil((cut - rest)/s.w.f);
+    if(need>100) return `<span class="no">${g}</span>`;
+    return `<span><b>${g}</b> ${Math.max(need,0)}</span>`;
+  }).join("");
+}
+
+// ---------- events ----------
+app.addEventListener("change", e=>{
+  const t = e.target;
+  if(t.dataset.check){ state.checks[t.dataset.check] = t.checked; touch(true); rerender(); }
+  else if(t.dataset.plan){ state.plan[t.dataset.plan] = t.checked; touch(true); rerender(); }
+  else if(t.dataset.topic){ state.topics[t.dataset.topic] = t.value.slice(0,120); touch(true); }
+  else if(t.dataset.note){ state.notes[t.dataset.note] = t.value.slice(0,4000); touch(true); }
+  else if(t.dataset.calc){ touch(true); }
+});
+app.addEventListener("input", e=>{
+  const t = e.target;
+  if(t.dataset.calc){
+    const [sid,f] = t.dataset.calc.split(".");
+    let v = Math.min(100, Math.max(0, +t.value||0));
+    state.calc[sid][f] = v;
+    const s = SUBJECTS.find(x=>x.id===sid); const {T,rest} = score(s);
+    app.querySelector(`[data-out="${sid}"]`).innerHTML = `${T.toFixed(1)} <small>/ 100</small>`;
+    app.querySelector(`[data-need="${sid}"]`).innerHTML = needHtml(s,rest);
+    touch(false);
+  } else if(t.dataset.note || t.dataset.topic){
+    // keep a local copy while typing; the page saves when the field loses focus
+    if(t.dataset.note) state.notes[t.dataset.note] = t.value.slice(0,4000);
+    else state.topics[t.dataset.topic] = t.value.slice(0,120);
+    touch(false);
+  }
+});
+app.addEventListener("input", e=>{
+  const k = e.target.dataset.draft; if(k){ draft[k] = e.target.value; keepDraft(); }
+});
+app.addEventListener("change", e=>{
+  const k = e.target.dataset.draft; if(k){ draft[k] = e.target.value; keepDraft(); }
+});
+app.addEventListener("click", e=>{
+  const mf = e.target.closest("[data-mfilter]");
+  if(mf){ state.mfilter = mf.dataset.mfilter; uiTouch(); rerender(); return; }
+  const ms = e.target.closest("[data-msubj]");
+  if(ms){ state.msubj = ms.dataset.msubj; uiTouch(); rerender(); return; }
+  const act = e.target.closest("[data-act]");
+  if(act){
+    const a = act.dataset.act, id = act.dataset.id;
+    const m = id ? state.mistakes.find(x=>x.id===id) : null;
+    if(a==="connect"){
+      const u = app.querySelector("#cfg-url").value.trim(), k = app.querySelector("#cfg-key").value.trim();
+      if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)){ setSync("That URL doesn’t look like an Apps Script web app. It should start with https://script.google.com/macros/s/ and end in /exec."); return; }
+      if(!k){ setSync("Enter the secret key from your script."); app.querySelector("#cfg-key").focus(); return; }
+      cfg = {url:u, key:k}; try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){}
+      rerender(); setSync("Connecting…"); pull(); return;
+    }
+    if(a==="disconnect"){ cfg = {url:"",key:""}; try{ localStorage.removeItem(CFG_KEY); }catch(e){} rerender(); setSync("Disconnected. Saving on this device only."); return; }
+    if(a==="syncnow"){ setSync("Syncing…"); pull(); return; }
+    if(a==="add"){
+      const q = draft.q.trim();
+      if(!q){ const ta = app.querySelector('[data-draft="q"]'); ta.focus(); ta.placeholder="Write the question or doubt first"; return; }
+      const fields = {subj:draft.subj, src:draft.src.trim().slice(0,120), type:draft.type, q:q.slice(0,3000), fix:draft.fix.trim().slice(0,3000)};
+      if(editingId){ const t = state.mistakes.find(x=>x.id===editingId); if(t) Object.assign(t, fields); editingId = null; }
+      else state.mistakes.push(Object.assign({id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), added:Date.now(), last:0, count:0, status:"open"}, fields));
+      draft = {subj:draft.subj, src:draft.src, type:"concept", q:"", fix:""}; keepDraft();
+      touch(true); rerender(); return;
+    }
+    if(a==="cancel"){ editingId=null; draft={subj:draft.subj,src:"",type:"concept",q:"",fix:""}; keepDraft(); rerender(); return; }
+    if(a==="copy"){
+      const tl = Object.fromEntries(MTYPES);
+      const txt = state.mistakes.map(x=>`[${SNAME[x.subj]}] ${tl[x.type]}${x.src?" — "+x.src:""} (${x.status==="mastered"?"mastered":"open"})\nQ: ${x.q}\nFix: ${x.fix||"-"}`).join("\n\n");
+      const done = ()=>{ act.textContent="Copied"; setTimeout(()=>act.textContent="Copy log as text",1500); };
+      if(navigator.clipboard) navigator.clipboard.writeText(txt||"(empty log)").then(done, ()=>{ act.textContent="Copy failed"; });
+      return;
+    }
+    if(!m) return;
+    if(a==="revisit"){ m.count=(m.count||0)+1; m.last=Date.now(); }
+    else if(a==="master"){ m.status="mastered"; m.last=Date.now(); m.count=(m.count||0)+1; }
+    else if(a==="reopen"){ m.status="open"; m.last=Date.now(); m.count=0; }
+    else if(a==="del"){ if(!confirm("Delete this entry?")) return; state.mistakes = state.mistakes.filter(x=>x!==m); }
+    else if(a==="edit"){
+      editingId = m.id; draft = {subj:m.subj, src:m.src||"", type:m.type, q:m.q, fix:m.fix||""}; keepDraft();
+      rerender(); const f = app.querySelector(".logform"); f.scrollIntoView({block:"center"}); app.querySelector('[data-draft="fix"]').focus(); return;
+    }
+    touch(true); rerender(); return;
+  }
+  const tab = e.target.closest("[data-tab]");
+  if(tab){ state.tab = tab.dataset.tab; uiTouch(); rerender(); return; }
+  if(e.target.id==="reset"){
+    if(confirm("Clear every tick, topic, note and logged mistake?")){ const keepTab=state.tab; state = blank(); state.tab=keepTab; touch(true); rerender(); }
+  }
+});
+function rerender(){ const y = window.scrollY; render(); window.scrollTo(0,y); }
+
+render();
+try{ const y = +sessionStorage.getItem("q2-scroll"); if(y){ window.scrollTo(0,y); sessionStorage.removeItem("q2-scroll"); } }catch(e){}
+
+if(cfg.url){ setSync("Syncing…"); pull(); setInterval(()=>{ if(document.visibilityState==="visible") pull(); }, 60000); }
+else setSync("Saving on this device only. Connect Google Sheets at the bottom to sync.");
+})();
+</script>
+</body>
+</html>
